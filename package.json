@@ -1,0 +1,15 @@
+{
+  "name": "mooddatabase-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "migrate":    "npm --prefix moodmix run migrate",
+    "seed":       "npm --prefix moodmix run seed",
+    "ingest":     "node moodmix/scripts/ingest.js",
+    "verify":     "node moodmix/scripts/verify.js",
+    "check":      "node moodmix/scripts/verify.js",
+    "prisma":     "npx --yes prisma@5.22.0 studio --schema moodmix/prisma/schema.prisma",
+    "start-db":   "moodmix start",
+    "stop-db":    "moodmix stop"
+  }
+}

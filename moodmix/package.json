@@ -1,0 +1,30 @@
+{
+  "name": "moodmix-database",
+  "version": "1.0.0",
+  "description": "Normalized PostgreSQL Music Database Backend and Ingestion Pipeline for MoodMix",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "ingest": "node scripts/ingest.js",
+    "verify": "node scripts/verify.js",
+    "test-ingest": "node scripts/ingest.js --limit=10 --query=\"Hindi workout\""
+  },
+  "keywords": [
+    "music",
+    "postgresql",
+    "database",
+    "mood-recommendation",
+    "youtube-api",
+    "music-metadata"
+  ],
+  "author": "MoodMix Team",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1"
+  }
+}
+

@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:password@127.0.0.1:5433/moodmix"
+}
+
+model albums {
+  album_id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String          @db.VarChar(255)
+  release_date    DateTime?       @db.Date
+  cover_image_url String?
+  album_type      String?         @default("single") @db.VarChar(50)
+  total_tracks    Int?            @default(1)
+  spotify_id      String?         @unique @db.VarChar(100)
+  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  artist_albums   artist_albums[]
+  songs           songs[]
+
+  @@index([title], map: "idx_albums_title")
+}
+
+model artist_albums {
+  artist_id String  @db.Uuid
+  album_id  String  @db.Uuid
+  role      String? @default("primary") @db.VarChar(50)
+  albums    albums  @relation(fields: [album_id], references: [album_id], onDelete: Cascade, onUpdate: NoAction)
+  artists   artists @relation(fields: [artist_id], references: [artist_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([artist_id, album_id])
+}
+
+model artists {
+  artist_id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String          @unique(map: "uq_artist_name") @db.VarChar(255)
+  bio                String?
+  image_url          String?
+  spotify_id         String?         @unique @db.VarChar(100)
+  youtube_channel_id String?         @unique @db.VarChar(100)
+  created_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  artist_albums      artist_albums[]
+  song_artists       song_artists[]
+
+  @@index([name], map: "idx_artists_name")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model generated_tracks {
+  generated_track_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String?   @db.Uuid
+  prompt             String
+  music_attributes   Json?     @default("{}")
+  generation_model   String?   @db.VarChar(100)
+  asset_uri          String?
+  duration_seconds   Int?
+  status             String    @db.VarChar(50)
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  users              users?    @relation(fields: [user_id], references: [user_id], onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_generated_tracks_user")
+}
+
+model genres {
+  genre_id    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String        @unique @db.VarChar(100)
+  slug        String        @unique @db.VarChar(100)
+  description String?
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  song_genres song_genres[]
+}
+
+model moods {
+  mood_id     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String       @unique @db.VarChar(100)
+  slug        String       @unique @db.VarChar(100)
+  category    String?      @db.VarChar(50)
+  description String?
+  created_at  DateTime?    @default(now()) @db.Timestamptz(6)
+  song_moods  song_moods[]
+}
+
+model playlist_items {
+  playlist_item_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playlist_id      String    @db.Uuid
+  song_id          String    @db.Uuid
+  position         Int
+  added_at         DateTime? @default(now()) @db.Timestamptz(6)
+  playlists        playlists @relation(fields: [playlist_id], references: [playlist_id], onDelete: Cascade, onUpdate: NoAction)
+  songs            songs     @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([playlist_id, position], map: "uq_playlist_items_playlist_position")
+  @@unique([playlist_id, song_id], map: "uq_playlist_items_playlist_song")
+  @@index([playlist_id, position], map: "idx_playlist_items_playlist")
+  @@index([song_id], map: "idx_playlist_items_song")
+}
+
+model playlists {
+  playlist_id    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String           @db.Uuid
+  name           String           @db.VarChar(255)
+  description    String?
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  playlist_items playlist_items[]
+  users          users            @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_playlists_user")
+}
+
+model recommendations {
+  recommendation_id String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id        String              @db.Uuid
+  song_id           String              @db.Uuid
+  rank              Int
+  final_score       Float               @db.Real
+  score_breakdown   Json?               @default("{}")
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  search_sessions   search_sessions     @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction)
+  songs             songs               @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+  user_interactions user_interactions[]
+
+  @@unique([session_id, rank], map: "uq_recommendations_session_rank")
+  @@unique([session_id, song_id], map: "uq_recommendations_session_song")
+  @@index([session_id, rank], map: "idx_recommendations_session")
+  @@index([song_id], map: "idx_recommendations_song")
+}
+
+model search_sessions {
+  session_id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String?               @db.Uuid
+  input_type          String?               @db.VarChar(50)
+  user_query          String?
+  input_asset_uri     String?
+  qwen_intent         Json?                 @default("{}")
+  model_name          String?               @db.VarChar(100)
+  created_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  recommendation_logs recommendation_logs[]
+  recommendations     recommendations[]
+  users               users?                @relation(fields: [user_id], references: [user_id], onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_search_sessions_user")
+}
+
+model song_artists {
+  song_id   String  @db.Uuid
+  artist_id String  @db.Uuid
+  role      String? @default("primary") @db.VarChar(50)
+  position  Int?    @default(1)
+  artists   artists @relation(fields: [artist_id], references: [artist_id], onDelete: Cascade, onUpdate: NoAction)
+  songs     songs   @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([song_id, artist_id])
+  @@index([artist_id], map: "idx_song_artists_artist")
+}
+
+model song_attributes {
+  song_id          String    @id @db.Uuid
+  energy           Float?    @db.Real
+  valence          Float?    @db.Real
+  danceability     Float?    @db.Real
+  acousticness     Float?    @db.Real
+  instrumentalness Float?    @db.Real
+  speechiness      Float?    @db.Real
+  loudness         Float?    @db.Real
+  tempo            Float?    @db.Real
+  key              Int?
+  mode             Int?
+  time_signature   Int?
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  songs            songs     @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([energy], map: "idx_song_attributes_energy")
+  @@index([tempo], map: "idx_song_attributes_tempo")
+  @@index([valence], map: "idx_song_attributes_valence")
+}
+
+model song_embeddings {
+  embedding_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  song_id      String    @db.Uuid
+  model_name   String    @db.VarChar(100)
+  faiss_id     BigInt
+  dimension    Int
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  embedding    Json?
+  songs        songs     @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([model_name, faiss_id], map: "uq_song_embeddings_model_faiss")
+  @@unique([song_id, model_name], map: "uq_song_embeddings_song_model")
+  @@index([song_id], map: "idx_song_embeddings_song")
+}
+
+model song_genres {
+  song_id    String   @db.Uuid
+  genre_id   String   @db.Uuid
+  is_primary Boolean? @default(false)
+  genres     genres   @relation(fields: [genre_id], references: [genre_id], onDelete: Cascade, onUpdate: NoAction)
+  songs      songs    @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([song_id, genre_id])
+  @@index([genre_id], map: "idx_song_genres_genre")
+}
+
+model song_moods {
+  song_id    String  @db.Uuid
+  mood_id    String  @db.Uuid
+  confidence Float?  @default(1.0) @db.Real
+  source     String? @default("rule") @db.VarChar(50)
+  moods      moods   @relation(fields: [mood_id], references: [mood_id], onDelete: Cascade, onUpdate: NoAction)
+  songs      songs   @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([song_id, mood_id])
+  @@index([mood_id], map: "idx_song_moods_mood")
+}
+
+model songs {
+  song_id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String              @db.VarChar(255)
+  artist            String?             @db.VarChar(255)
+  album             String?             @db.VarChar(255)
+  language          String?             @db.VarChar(80)
+  genre             String?             @db.VarChar(100)
+  mood_tags         Json?               @default("[]")
+  energy            String?             @db.VarChar(20)
+  tempo_bpm         Float?              @db.Real
+  duration_seconds  Int?
+  thumbnail_url     String?
+  youtube_video_id  String              @unique @db.VarChar(100)
+  youtube_url       String?
+  source            String?             @db.VarChar(50)
+  metadata          Json?               @default("{}")
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  album_id          String?             @db.Uuid
+  release_date      DateTime?           @db.Date
+  explicit          Boolean?            @default(false)
+  popularity        Int?                @default(0)
+  spotify_id        String?             @unique @db.VarChar(100)
+  spotify_url       String?
+  raw_metadata      Json?               @default("{}")
+  is_ml_processed   Boolean?            @default(false)
+  ml_processed_at   DateTime?           @db.Timestamptz(6)
+  playlist_items    playlist_items[]
+  recommendations   recommendations[]
+  song_artists      song_artists[]
+  song_attributes   song_attributes?
+  song_embeddings   song_embeddings[]
+  song_genres       song_genres[]
+  song_moods        song_moods[]
+  albums            albums?             @relation(fields: [album_id], references: [album_id], onUpdate: NoAction)
+  user_interactions user_interactions[]
+
+  @@index([energy], map: "idx_songs_energy")
+  @@index([genre], map: "idx_songs_genre")
+  @@index([language], map: "idx_songs_language")
+  @@index([metadata], map: "idx_songs_metadata", type: Gin)
+  @@index([mood_tags], map: "idx_songs_mood_tags", type: Gin)
+  @@index([popularity(sort: Desc)], map: "idx_songs_popularity")
+  @@index([release_date], map: "idx_songs_release_date")
+  @@index([title], map: "idx_songs_title")
+  @@index([youtube_video_id], map: "idx_songs_youtube_video_id")
+  @@index([is_ml_processed], map: "idx_songs_ml_processed")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_interactions {
+  interaction_id    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String?          @db.Uuid
+  song_id           String?          @db.Uuid
+  recommendation_id String?          @db.Uuid
+  event_type        String           @db.VarChar(50)
+  played_seconds    Int?
+  context           Json?            @default("{}")
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  recommendations   recommendations? @relation(fields: [recommendation_id], references: [recommendation_id], onUpdate: NoAction)
+  songs             songs?           @relation(fields: [song_id], references: [song_id], onDelete: Cascade, onUpdate: NoAction)
+  users             users?           @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([recommendation_id], map: "idx_user_interactions_recommendation")
+  @@index([song_id, created_at(sort: Desc)], map: "idx_user_interactions_song")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_user_interactions_user")
+}
+
+model user_preferences {
+  user_id              String    @id @db.Uuid
+  preferred_genres     Json?     @default("[]")
+  preferred_languages  Json?     @default("[]")
+  preferred_moods      Json?     @default("[]")
+  preferred_activities Json?     @default("[]")
+  energy_preference    String?   @db.VarChar(20)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+  users                users     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  user_id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username            String                @db.VarChar(100)
+  email               String                @unique @db.VarChar(255)
+  password_hash       String?
+  created_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  generated_tracks    generated_tracks[]
+  playlists           playlists[]
+  recommendation_logs recommendation_logs[]
+  search_sessions     search_sessions[]
+  user_interactions   user_interactions[]
+  user_preferences    user_preferences?
+}
+
+model recommendation_logs {
+  log_id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id        String?          @db.Uuid
+  user_id           String?          @db.Uuid
+  recommended_songs Json             @default("[]")
+  input_moods       Json?            @default("[]")
+  input_genres      Json?            @default("[]")
+  model_version     String?          @db.VarChar(100)
+  user_feedback     String?          @db.VarChar(50)
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  search_sessions   search_sessions? @relation(fields: [session_id], references: [session_id], onUpdate: NoAction)
+  users             users?           @relation(fields: [user_id], references: [user_id], onUpdate: NoAction)
+}
